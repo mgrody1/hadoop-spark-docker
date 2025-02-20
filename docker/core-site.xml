@@ -21,4 +21,5 @@
     <name>fs.defaultFS</name>
     <value>hdfs://hadoop-namenode:8020</value>
 </property>
+<property><name>fs.defaultFS</name><value>hdfs://hadoop-namenode:9000</value></property>
 </configuration>
