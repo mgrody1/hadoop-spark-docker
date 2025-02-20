@@ -1,61 +1,57 @@
-version: '3'
+version: "3"
 services:
   namenode:
-    image: bde2020/hadoop-namenode:latest
+    image: hadoop-namenode
     container_name: namenode
-    environment:
-      - CLUSTER_NAME=hadoop_cluster
+    hostname: namenode
     ports:
-      - "9870:9870"
-      - "9000:9000"
+      - "9870:9870"  # Web UI
+      - "9000:9000"  # HDFS RPC
+    environment:
+      - HDFS_NAMENODE_RPC_ADDRESS=0.0.0.0:9000
+      - HADOOP_CONF_DIR=/etc/hadoop
     volumes:
-      - hadoop_namenode:/hadoop/dfs/name
+      - ./hadoop-config/core-site.xml:/etc/hadoop/core-site.xml
+      - ./hadoop-config/hdfs-site.xml:/etc/hadoop/hdfs-site.xml
+      - namenode_data:/hadoop/dfs/name
+    networks:
+      - hadoop-network
 
   datanode:
-    image: bde2020/hadoop-datanode:latest
+    image: hadoop-datanode
     container_name: datanode
-    environment:
-      - CORE_CONF_fs_defaultFS=hdfs://namenode:9000
-    volumes:
-      - hadoop_datanode:/hadoop/dfs/data
+    hostname: datanode
     depends_on:
       - namenode
+    environment:
+      - HDFS_DATANODE_HOSTNAME=datanode
+    volumes:
+      - datanode_data:/hadoop/dfs/data
+    networks:
+      - hadoop-network
 
   resourcemanager:
-    image: bde2020/hadoop-resourcemanager:latest
+    image: hadoop-resourcemanager
     container_name: resourcemanager
-    environment:
-      - YARN_CONF_yarn_resourcemanager_hostname=resourcemanager
+    hostname: resourcemanager
     depends_on:
       - namenode
+    networks:
+      - hadoop-network
 
   nodemanager:
-    image: bde2020/hadoop-nodemanager:latest
+    image: hadoop-nodemanager
     container_name: nodemanager
+    hostname: nodemanager
     depends_on:
       - resourcemanager
+    networks:
+      - hadoop-network
 
-  spark:
-    image: bde2020/spark-master:latest
-    container_name: spark-master
-    ports:
-      - "18080:8080"  # Change external port to 18080 since I have other services using 8080
-      - "4040:4040"
-    depends_on:
-      - namenode
-      - datanode
-      - resourcemanager
-
-
-  hive-server:
-    image: bde2020/hive:latest
-    container_name: hive-server
-    ports:
-      - "10000:10000"
-    depends_on:
-      - namenode
-      - datanode
+networks:
+  hadoop-network:
+    driver: bridge
 
 volumes:
-  hadoop_namenode:
-  hadoop_datanode:
+  namenode_data:
+  datanode_data:
