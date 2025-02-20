@@ -2,29 +2,41 @@ version: '3.8'
 
 services:
   hadoop-namenode:
-    image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
+    image: apache/hadoop:3.3.5
     container_name: hadoop-namenode
+    hostname: hadoop-namenode
+    user: root
     environment:
-      - CLUSTER_NAME=test-cluster
-    ports:
-      - "9870:9870"  # HDFS Web UI
-      - "9000:9000"  # HDFS NameNode
-    networks:
-      - hadoop-net
+      - HADOOP_HOME=/opt/hadoop
     volumes:
-      - namenode:/hadoop/dfs/name
+      - ./hadoop_namenode:/opt/hadoop/data/nameNode
+      - ./hadoop_config:/opt/hadoop/etc/hadoop  # Ensure config persists
+      - ./start-hdfs.sh:/start-hdfs.sh
+    ports:
+      - "9870:9870"  # Web UI
+      - "8020:8020"  # HDFS NameNode RPC port
+    command: [ "/bin/bash", "/start-hdfs.sh" ]
+    networks:
+      hadoop-net:
+        ipv4_address: 172.21.0.2
 
   hadoop-datanode:
-    image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+    image: apache/hadoop:3.3.5
     container_name: hadoop-datanode
+    hostname: hadoop-datanode
+    user: root
     environment:
-      - CORE_CONF_fs_defaultFS=hdfs://hadoop-namenode:9000
-    networks:
-      - hadoop-net
+      - HADOOP_HOME=/opt/hadoop
+    volumes:
+      - ./hadoop_datanode:/opt/hadoop/data/dataNode
+      - ./hadoop_config:/opt/hadoop/etc/hadoop  # Ensure config persists
+      - ./init-datanode.sh:/init-datanode.sh
     depends_on:
       - hadoop-namenode
-    volumes:
-      - datanode:/hadoop/dfs/data
+    command: [ "/bin/bash", "/init-datanode.sh" ]
+    networks:
+      hadoop-net:
+        ipv4_address: 172.21.0.3
 
   spark-master:
     image: bde2020/spark-master:3.0.1-hadoop3.2
@@ -60,8 +72,10 @@ services:
 
 networks:
   hadoop-net:
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.21.0.0/16
 
 volumes:
-  namenode:
-  datanode:
   cassandra_data:
