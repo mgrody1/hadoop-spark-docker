@@ -12,10 +12,9 @@ services:
       - HADOOP_CONF_DIR=/etc/hadoop
     volumes:
       - namenode_data:/hadoop/dfs/name
-      - ./hadoop-config/core-site.xml:/etc/hadoop/core-site.xml
-      - ./hadoop-config/hdfs-site.xml:/etc/hadoop/hdfs-site.xml
+      - ./hadoop-config:/etc/hadoop  # ✅ Mount the full directory instead of files
     command: >
-      sh -c "touch /etc/hadoop/core-site.xml /etc/hadoop/hdfs-site.xml && /entrypoint.sh namenode"
+      sh -c "mkdir -p /etc/hadoop && touch /etc/hadoop/core-site.xml /etc/hadoop/hdfs-site.xml && /entrypoint.sh namenode"
     networks:
       - hadoop-network
 
@@ -29,6 +28,7 @@ services:
       - HDFS_DATANODE_HOSTNAME=datanode
     volumes:
       - datanode_data:/hadoop/dfs/data
+      - ./hadoop-config:/etc/hadoop  # ✅ Ensure datanode gets the same configs
     networks:
       - hadoop-network
 
@@ -38,6 +38,8 @@ services:
     hostname: resourcemanager
     depends_on:
       - namenode
+    volumes:
+      - ./hadoop-config:/etc/hadoop  # ✅ Ensure resourcemanager gets the same configs
     networks:
       - hadoop-network
 
@@ -47,6 +49,8 @@ services:
     hostname: nodemanager
     depends_on:
       - resourcemanager
+    volumes:
+      - ./hadoop-config:/etc/hadoop  # ✅ Ensure nodemanager gets the same configs
     networks:
       - hadoop-network
 
