@@ -1,39 +1,39 @@
 version: "3"
 services:
   namenode:
-    image: bde2020/hadoop-namenode:latest
+    image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
     container_name: namenode
     hostname: namenode
     ports:
       - "9870:9870"  # Web UI
       - "9000:9000"  # HDFS RPC
     environment:
-      - CLUSTER_NAME=hadoop-cluster
       - HDFS_NAMENODE_RPC_ADDRESS=0.0.0.0:9000
       - HADOOP_CONF_DIR=/etc/hadoop
     volumes:
+      - namenode_data:/hadoop/dfs/name
       - ./hadoop-config/core-site.xml:/etc/hadoop/core-site.xml
       - ./hadoop-config/hdfs-site.xml:/etc/hadoop/hdfs-site.xml
-      - namenode_data:/hadoop/dfs/name
+    command: >
+      sh -c "touch /etc/hadoop/core-site.xml /etc/hadoop/hdfs-site.xml && /entrypoint.sh namenode"
     networks:
       - hadoop-network
 
   datanode:
-    image: bde2020/hadoop-datanode:latest
+    image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
     container_name: datanode
     hostname: datanode
     depends_on:
       - namenode
     environment:
       - HDFS_DATANODE_HOSTNAME=datanode
-      - CLUSTER_NAME=hadoop-cluster
     volumes:
       - datanode_data:/hadoop/dfs/data
     networks:
       - hadoop-network
 
   resourcemanager:
-    image: bde2020/hadoop-resourcemanager:latest
+    image: bde2020/hadoop-resourcemanager:2.0.0-hadoop3.2.1-java8
     container_name: resourcemanager
     hostname: resourcemanager
     depends_on:
@@ -42,7 +42,7 @@ services:
       - hadoop-network
 
   nodemanager:
-    image: bde2020/hadoop-nodemanager:latest
+    image: bde2020/hadoop-nodemanager:2.0.0-hadoop3.2.1-java8
     container_name: nodemanager
     hostname: nodemanager
     depends_on:
