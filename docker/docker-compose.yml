@@ -1,63 +1,67 @@
-version: "3"
+version: '3.8'
+
 services:
-  namenode:
+  hadoop-namenode:
     image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
-    container_name: namenode
-    hostname: namenode
+    container_name: hadoop-namenode
+    environment:
+      - CLUSTER_NAME=test-cluster
     ports:
-      - "9870:9870"  # Web UI
-      - "9000:9000"  # HDFS RPC
-    environment:
-      - HDFS_NAMENODE_RPC_ADDRESS=0.0.0.0:9000
-      - HADOOP_CONF_DIR=/etc/hadoop
-    volumes:
-      - namenode_data:/hadoop/dfs/name
-      - ./hadoop-config:/etc/hadoop  # ✅ Mount the full directory instead of files
-    command: >
-      sh -c "mkdir -p /etc/hadoop && touch /etc/hadoop/core-site.xml /etc/hadoop/hdfs-site.xml && /entrypoint.sh namenode"
+      - "9870:9870"  # HDFS Web UI
+      - "9000:9000"  # HDFS NameNode
     networks:
-      - hadoop-network
+      - hadoop-net
+    volumes:
+      - namenode:/hadoop/dfs/name
 
-  datanode:
+  hadoop-datanode:
     image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
-    container_name: datanode
-    hostname: datanode
-    depends_on:
-      - namenode
+    container_name: hadoop-datanode
     environment:
-      - HDFS_DATANODE_HOSTNAME=datanode
-    volumes:
-      - datanode_data:/hadoop/dfs/data
-      - ./hadoop-config:/etc/hadoop  # ✅ Ensure datanode gets the same configs
+      - CORE_CONF_fs_defaultFS=hdfs://hadoop-namenode:9000
     networks:
-      - hadoop-network
-
-  resourcemanager:
-    image: bde2020/hadoop-resourcemanager:2.0.0-hadoop3.2.1-java8
-    container_name: resourcemanager
-    hostname: resourcemanager
+      - hadoop-net
     depends_on:
-      - namenode
+      - hadoop-namenode
     volumes:
-      - ./hadoop-config:/etc/hadoop  # ✅ Ensure resourcemanager gets the same configs
-    networks:
-      - hadoop-network
+      - datanode:/hadoop/dfs/data
 
-  nodemanager:
-    image: bde2020/hadoop-nodemanager:2.0.0-hadoop3.2.1-java8
-    container_name: nodemanager
-    hostname: nodemanager
-    depends_on:
-      - resourcemanager
-    volumes:
-      - ./hadoop-config:/etc/hadoop  # ✅ Ensure nodemanager gets the same configs
+  spark-master:
+    image: bde2020/spark-master:3.0.1-hadoop3.2
+    container_name: spark-master
+    environment:
+      - SPARK_MODE=master
+    ports:
+      - "8080:8080"  # Spark Web UI
+      - "7077:7077"  # Spark Master
     networks:
-      - hadoop-network
+      - hadoop-net
+
+  spark-worker:
+    image: bde2020/spark-worker:3.0.1-hadoop3.2
+    container_name: spark-worker
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER=spark://spark-master:7077
+    depends_on:
+      - spark-master
+    networks:
+      - hadoop-net
+
+  cassandra:
+    image: cassandra:latest
+    container_name: cassandra
+    ports:
+      - "9042:9042"  # Cassandra CQL Port
+    networks:
+      - hadoop-net
+    volumes:
+      - cassandra_data:/var/lib/cassandra
 
 networks:
-  hadoop-network:
-    driver: bridge
+  hadoop-net:
 
 volumes:
-  namenode_data:
-  datanode_data:
+  namenode:
+  datanode:
+  cassandra_data:
