@@ -1,42 +1,70 @@
 version: '3.8'
 
 services:
-  hadoop-namenode:
+  namenode:
     image: apache/hadoop:3.3.5
-    container_name: hadoop-namenode
-    hostname: hadoop-namenode
+    container_name: namenode
+    hostname: namenode
     user: root
     environment:
-      - HADOOP_HOME=/opt/hadoop
+      - CLUSTER_NAME=survivor-cluster
+      - CORE_CONF_fs_defaultFS=hdfs://namenode:8020
     volumes:
-      - ./hadoop_namenode:/opt/hadoop/data/nameNode
-      - ./hadoop_config:/opt/hadoop/etc/hadoop  # Ensure config persists
-      - ./start-hdfs.sh:/start-hdfs.sh
+      - namenode:/opt/hadoop/data/namenode
+      - ./hadoop_config:/opt/hadoop/etc/hadoop
+      - ./datasets:/datasets  # Mount survivor dataset here
     ports:
-      - "9870:9870"  # Web UI
-      - "8020:8020"  # HDFS NameNode RPC port
-    command: [ "/bin/bash", "/start-hdfs.sh" ]
+      - "9870:9870"  # HDFS UI
+      - "8020:8020"  # HDFS RPC
     networks:
       hadoop-net:
-        ipv4_address: 172.21.0.2
+        ipv4_address: 172.20.0.2
+    command: [ "/bin/bash", "/start-hdfs.sh" ]
 
-  hadoop-datanode:
+  datanode:
     image: apache/hadoop:3.3.5
-    container_name: hadoop-datanode
-    hostname: hadoop-datanode
+    container_name: datanode
+    hostname: datanode
     user: root
     environment:
-      - HADOOP_HOME=/opt/hadoop
+      - CORE_CONF_fs_defaultFS=hdfs://namenode:8020
     volumes:
-      - ./hadoop_datanode:/opt/hadoop/data/dataNode
-      - ./hadoop_config:/opt/hadoop/etc/hadoop  # Ensure config persists
-      - ./init-datanode.sh:/init-datanode.sh
+      - datanode:/opt/hadoop/data/datanode
+      - ./hadoop_config:/opt/hadoop/etc/hadoop
     depends_on:
-      - hadoop-namenode
-    command: [ "/bin/bash", "/init-datanode.sh" ]
+      - namenode
     networks:
       hadoop-net:
-        ipv4_address: 172.21.0.3
+        ipv4_address: 172.20.0.3
+    command: [ "/bin/bash", "/init-datanode.sh" ]
+
+  resourcemanager:
+    image: apache/hadoop:3.3.5
+    container_name: resourcemanager
+    hostname: resourcemanager
+    user: root
+    environment:
+      - YARN_CONF_yarn_resourcemanager_hostname=resourcemanager
+    ports:
+      - "8088:8088"  # YARN UI
+    networks:
+      hadoop-net:
+        ipv4_address: 172.20.0.4
+    command: [ "/bin/bash", "-c", "/opt/hadoop/bin/yarn resourcemanager" ]
+
+  nodemanager:
+    image: apache/hadoop:3.3.5
+    container_name: nodemanager
+    hostname: nodemanager
+    user: root
+    environment:
+      - YARN_CONF_yarn_nodemanager_aux_services=mapreduce_shuffle
+    depends_on:
+      - resourcemanager
+    networks:
+      hadoop-net:
+        ipv4_address: 172.20.0.5
+    command: [ "/bin/bash", "-c", "/opt/hadoop/bin/yarn nodemanager" ]
 
   spark-master:
     image: bde2020/spark-master:3.0.1-hadoop3.2
@@ -44,10 +72,11 @@ services:
     environment:
       - SPARK_MODE=master
     ports:
-      - "8081:8080"  # Spark Web UI
+      - "8081:8080"  # Spark UI
       - "7077:7077"  # Spark Master
     networks:
-      - hadoop-net
+      hadoop-net:
+        ipv4_address: 172.20.0.6
 
   spark-worker:
     image: bde2020/spark-worker:3.0.1-hadoop3.2
@@ -58,24 +87,16 @@ services:
     depends_on:
       - spark-master
     networks:
-      - hadoop-net
+      hadoop-net:
+        ipv4_address: 172.20.0.7
 
-  cassandra:
-    image: cassandra:latest
-    container_name: cassandra
-    ports:
-      - "9042:9042"  # Cassandra CQL Port
-    networks:
-      - hadoop-net
-    volumes:
-      - cassandra_data:/var/lib/cassandra
+volumes:
+  namenode:
+  datanode:
 
 networks:
   hadoop-net:
     ipam:
       driver: default
       config:
-        - subnet: 172.21.0.0/16
-
-volumes:
-  cassandra_data:
+        - subnet: 172.20.0.0/16
